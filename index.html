@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Farm</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js library -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        background-color: #eaf7f6;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-image: linear-gradient(135deg, #a2d9ce, #d4efdf);
+      }
+
+      .dashboard {
+        background: linear-gradient(145deg, #ffffff, #f0f4f7);
+        border-radius: 15px;
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 700px;
+        width: 90%;
+        text-align: center;
+      }
+
+      .dashboard h1 {
+        font-size: 36px;
+        font-weight: 600;
+        color: #0e6655;
+        margin-bottom: 30px;
+      }
+
+      .data {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 30px;
+        margin: 15px 0;
+        border: 1px solid #d5e8e6;
+        border-radius: 12px;
+        background: #f8f9fa;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .data:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .data span {
+        font-size: 18px;
+        font-weight: 600;
+        color: #148f77;
+      }
+
+      .flower-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #148f77;
+      }
+
+      footer {
+        margin-top: 25px;
+        font-size: 14px;
+        color: #7f8c8d;
+        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+      }
+
+      canvas {
+        margin-top: 20px;
+        max-width: 100%;
+      }
+
+      .graph-container {
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard">
+      <h1>🌱 Smart Farm Dashboard</h1>
+
+      <!-- Light Level -->
+      <div class="data">
+        <div class="icon">☀️</div>
+        <span>Light Level:</span>
+        <span id="lightLevel">--</span>
+      </div>
+
+      <!-- Temperature -->
+      <div class="data">
+        <div class="icon">🌡️</div>
+        <span>Temperature:</span>
+        <span id="temperature">--</span>
+      </div>
+
+      <!-- Humidity -->
+      <div class="data">
+        <div class="icon">💧</div>
+        <span>Humidity:</span>
+        <span id="humidity">--</span>
+      </div>
+
+      <!-- CO2 Level -->
+      <div class="data">
+        <div class="icon">💨</div>
+        <span>CO2 Level:</span>
+        <span id="co2Level">--</span>
+      </div>
+
+      <!-- Soil Moisture -->
+      <div class="data">
+        <div class="icon">🌱</div>
+        <span>Soil Moisture:</span>
+        <span id="soilMoisture">--</span>
+      </div>
+
+      <!-- Detected Objects -->
+      <div class="data" id="detectedObjects">
+        <div class="icon">🌻</div>
+        <span>No objects detected yet.</span>
+        <span> </span>
+      </div>
+
+      <!-- Graphs for each data -->
+      <div class="graph-container">
+        <canvas id="lightChart"></canvas>
+        <canvas id="temperatureChart"></canvas>
+        <canvas id="humidityChart"></canvas>
+        <canvas id="co2Chart"></canvas>
+        <canvas id="soilMoistureChart"></canvas>
+      </div>
+
+      <footer>📅 Updated every 5 seconds</footer>
+    </div>
+
+    <script>
+      const authBlynkToken = "RAx5fkRqOmN_qFMhghHqXZCgLHFyv160";
+      const lightData = [];
+      const temperatureData = [];
+      const humidityData = [];
+      const co2Data = [];
+      const soilMoistureData = [];
+      const timeLabels = [];
+
+      const apiEndpoint = "http://127.0.0.1:5000/api/detect";
+      const authToken = "8gY2B3mcqDpaX6D4Mxu7Ym7EymXIz5MD";
+
+      // Create individual charts
+      const lightCtx = document.getElementById("lightChart").getContext("2d");
+      const temperatureCtx = document
+        .getElementById("temperatureChart")
+        .getContext("2d");
+      const humidityCtx = document
+        .getElementById("humidityChart")
+        .getContext("2d");
+      const co2Ctx = document.getElementById("co2Chart").getContext("2d");
+      const soilMoistureCtx = document
+        .getElementById("soilMoistureChart")
+        .getContext("2d");
+
+      // Light Level chart
+      const lightChart = new Chart(lightCtx, {
+        type: "line",
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: "Light Level",
+              data: lightData,
+              backgroundColor: "rgba(20, 143, 119, 0.2)",
+              borderColor: "rgba(20, 143, 119, 1)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" }, beginAtZero: true },
+          },
+        },
+      });
+
+      // Temperature chart
+      const temperatureChart = new Chart(temperatureCtx, {
+        type: "line",
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: "Temperature",
+              data: temperatureData,
+              backgroundColor: "rgba(255, 99, 132, 0.2)",
+              borderColor: "rgba(255, 99, 132, 1)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" }, beginAtZero: true },
+          },
+        },
+      });
+
+      // Humidity chart
+      const humidityChart = new Chart(humidityCtx, {
+        type: "line",
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: "Humidity",
+              data: humidityData,
+              backgroundColor: "rgba(54, 162, 235, 0.2)",
+              borderColor: "rgba(54, 162, 235, 1)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" }, beginAtZero: true },
+          },
+        },
+      });
+
+      // CO2 Level chart
+      const co2Chart = new Chart(co2Ctx, {
+        type: "line",
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: "CO2 Level",
+              data: co2Data,
+              backgroundColor: "rgba(153, 102, 255, 0.2)",
+              borderColor: "rgba(153, 102, 255, 1)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" }, beginAtZero: true },
+          },
+        },
+      });
+
+      // Soil Moisture chart
+      const soilMoistureChart = new Chart(soilMoistureCtx, {
+        type: "line",
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: "Soil Moisture",
+              data: soilMoistureData,
+              backgroundColor: "rgba(75, 192, 192, 0.2)",
+              borderColor: "rgba(75, 192, 192, 1)",
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Value" }, beginAtZero: true },
+          },
+        },
+      });
+
+      // Fetch detections
+      async function fetchDetections() {
+      try {
+        const response = await fetch(apiEndpoint);
+        if (!response.ok) throw new Error("Failed to fetch detections.");
+        
+        const data = await response.json();
+        const detectedObjectsDiv = document.getElementById("detectedObjects");
+        detectedObjectsDiv.innerHTML = ""; // Clear previous results
+
+        if (data.objects && data.objects.length > 0) {
+          data.objects.forEach(object => {
+            const confidence = object.confidence * 100;
+
+            const objectDiv = document.createElement("span");
+            objectDiv.classList.add("object");
+
+            if (confidence >= 65) {
+              objectDiv.textContent = "Detect Flowers!";
+              objectDiv.classList.add("high-confidence");
+            } else {
+              objectDiv.textContent = "No Flowers Detected!";
+              objectDiv.classList.add("low-confidence");
+            }
+
+            detectedObjectsDiv.appendChild(objectDiv);
+          });
+        } else {
+          detectedObjectsDiv.innerHTML = "<span class='flower-text'>No objects detected.</span>";
+        }
+      } catch (error) {
+        console.error("Error fetching detected objects:", error);
+      }
+    }
+
+      setInterval(fetchDetections, 2000);
+
+      // Fetching data
+      async function fetchBlynkData() {
+        try {
+          const lightLevel = await fetch(
+            `http://blynk.cloud/external/api/get?token=${authBlynkToken}&V0`
+          ).then((res) => res.text());
+          const temperature = await fetch(
+            `http://blynk.cloud/external/api/get?token=${authBlynkToken}&V2`
+          ).then((res) => res.text());
+          const humidity = await fetch(
+            `http://blynk.cloud/external/api/get?token=${authBlynkToken}&V3`
+          ).then((res) => res.text());
+          const co2Level = await fetch(
+            `http://blynk.cloud/external/api/get?token=${authBlynkToken}&V4`
+          ).then((res) => res.text());
+          const soilMoisture = await fetch(
+            `http://blynk.cloud/external/api/get?token=${authBlynkToken}&V1`
+          ).then((res) => res.text());
+
+          // Update UI with fetched data
+          document.getElementById("lightLevel").textContent = lightLevel;
+          document.getElementById("temperature").textContent = temperature;
+          document.getElementById("humidity").textContent = humidity;
+          document.getElementById("co2Level").textContent = co2Level;
+          document.getElementById("soilMoisture").textContent = soilMoisture;
+
+          // Add data to graphs
+          const currentTime = new Date().toLocaleTimeString();
+          timeLabels.push(currentTime);
+          lightData.push(parseFloat(lightLevel));
+          temperatureData.push(parseFloat(temperature));
+          humidityData.push(parseFloat(humidity));
+          co2Data.push(parseFloat(co2Level));
+          soilMoistureData.push(parseFloat(soilMoisture));
+
+          // Remove old data if more than 10 points
+          if (timeLabels.length > 10) {
+            timeLabels.shift();
+            lightData.shift();
+            temperatureData.shift();
+            humidityData.shift();
+            co2Data.shift();
+            soilMoistureData.shift();
+          }
+
+          // Update all charts
+          lightChart.update();
+          temperatureChart.update();
+          humidityChart.update();
+          co2Chart.update();
+          soilMoistureChart.update();
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
+      }
+
+      setInterval(fetchBlynkData, 5000);
+    </script>
+  </body>
+</html>
